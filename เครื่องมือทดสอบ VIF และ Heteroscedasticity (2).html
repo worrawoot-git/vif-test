@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>เครื่องมือทดสอบ VIF และ Heteroscedasticity</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap">
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--tx:#1d2433;--mu:#5d6679;--bd:#dde2ee;--pr:#2f5bea;--prt:#fff;--ok:#16794a;--bad:#c0392b;--warn:#b7791f;--th:#eaeffc;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151d;--card:#1c212d;--tx:#e8ebf3;--mu:#9aa3b8;--bd:#2f3748;--pr:#6b8cff;--prt:#0b1020;--ok:#4cd08d;--bad:#ff7b6b;--warn:#f0b955;--th:#262e42}}
+:root[data-theme="dark"]{--bg:#12151d;--card:#1c212d;--tx:#e8ebf3;--mu:#9aa3b8;--bd:#2f3748;--pr:#6b8cff;--prt:#0b1020;--ok:#4cd08d;--bad:#ff7b6b;--warn:#f0b955;--th:#262e42}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:"Sarabun",system-ui,sans-serif;line-height:1.65;font-size:16px}
+.wrap{max-width:1000px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:1.6rem;margin:.2em 0}h2{font-size:1.2rem;margin:0 0 .6em}h3{font-size:1.02rem;margin:1em 0 .4em}
+.sub{color:var(--mu);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:16px}
+.step{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--pr);color:var(--prt);align-items:center;justify-content:center;font-size:.85rem;margin-right:8px;font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:9px 14px}
+button:hover{border-color:var(--pr)}
+button.on{background:var(--pr);color:var(--prt);border-color:var(--pr);font-weight:600}
+button.main{background:var(--pr);color:var(--prt);border-color:var(--pr);font-weight:700;padding:11px 24px}
+button.danger{color:var(--bad);border-color:var(--bad)}
+button:disabled{opacity:.5;cursor:not-allowed}
+input[type=file],select{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:8px;max-width:100%}
+.chk{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bd);border-radius:8px;padding:5px 10px;margin:3px}
+.hint{color:var(--mu);font-size:.9rem}
+.tw{overflow-x:auto;margin:8px 0}
+table{border-collapse:collapse;width:100%;font-size:.93rem;min-width:420px}
+th,td{border:1px solid var(--bd);padding:6px 10px;text-align:right;white-space:nowrap}
+th{background:var(--th)}th:first-child,td:first-child{text-align:left}
+.expl{background:var(--bg);border-left:4px solid var(--pr);border-radius:8px;padding:10px 14px;margin:10px 0;font-size:.95rem}
+.expl p{margin:.4em 0}
+.good{color:var(--ok);font-weight:600}.badc{color:var(--bad);font-weight:600}.warnc{color:var(--warn);font-weight:600}
+.chartbox{background:#fff;border-radius:10px;border:1px solid var(--bd);padding:8px;height:430px;position:relative;overflow-x:auto}
+.chartbox canvas{max-width:100%}
+.err{color:var(--bad);font-weight:600;margin-top:8px}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="row" style="justify-content:flex-end" id="lgBtns"><button id="lgTH" class="on">ไทย</button><button id="lgEN">English</button></div>
+<h1>📊 <span data-th="ทดสอบ VIF · Tolerance · Heteroscedasticity" data-en="VIF · Tolerance · Heteroscedasticity Tests"></span></h1>
+<p class="sub" data-th="ตรวจสอบข้อตกลงเบื้องต้นของการวิเคราะห์การถดถอยเชิงพหุ (Multiple Regression) จากไฟล์ Excel ของคุณ ข้อมูลประมวลผลในเบราว์เซอร์เท่านั้น" data-en="Check the key assumptions of multiple regression from your Excel file. All data is processed in your browser only."></p>
+
+<div class="card"><h2><span class="step">1</span><span data-th="เลือกการทดสอบ" data-en="Select the test"></span></h2>
+<div class="row" id="testBtns">
+<button data-t="multi"><span data-th="Multicollinearity (VIF / Tolerance)" data-en="Multicollinearity (VIF / Tolerance)"></span></button>
+<button data-t="hetero"><span data-th="Homoscedasticity / Heteroscedasticity" data-en="Homoscedasticity / Heteroscedasticity"></span></button>
+<button data-t="all" class="on"><span data-th="ทดสอบทั้งหมด" data-en="Run all tests"></span></button>
+</div></div>
+
+<div class="card"><h2><span class="step">2</span><span data-th="แนบไฟล์ข้อมูล Excel" data-en="Upload your Excel data file"></span></h2>
+<input type="file" id="file" accept=".xlsx,.xls,.csv">
+<p class="hint" data-th="แถวแรกเป็นชื่อตัวแปร ข้อมูลเป็นตัวเลข (อ่านจากชีตแรก) รองรับ .xlsx .xls .csv" data-en="The first row must contain variable names and the data must be numeric (first sheet is read). Supports .xlsx .xls .csv"></p>
+<div class="row"><button id="sampleBtn" data-th="🧪 ทดสอบด้วยข้อมูลตัวอย่าง" data-en="🧪 Try with sample data"></button><button id="sampleDl" data-th="⬇ ดาวน์โหลดไฟล์ Excel ตัวอย่าง" data-en="⬇ Download sample Excel file"></button></div>
+<p class="hint" data-th="ข้อมูลตัวอย่าง 60 แถว: ยอดขาย (Y) กับงบโฆษณา พื้นที่ร้าน จำนวนพนักงาน ราคาสินค้า (X) โดยงบโฆษณาและพื้นที่ร้านสัมพันธ์กันสูง (r ≈ 0.99 จึงเกิด Multicollinearity) และความแปรปรวนของความคลาดเคลื่อนเพิ่มขึ้นตามงบโฆษณา (จึงเกิด Heteroscedasticity)" data-en="Sample data, 60 rows: Sales (Y) with Ad budget, Store area, Staff count and Product price (X). Ad budget and Store area are highly correlated (r ≈ 0.99, causing multicollinearity) and the error variance grows with Ad budget (causing heteroscedasticity)."></p>
+<div id="varBox" class="hide">
+<h3 data-th="เลือกตัวแปร" data-en="Select variables"></h3>
+<div><span data-th="ตัวแปรตาม (Y):" data-en="Dependent variable (Y):"></span> <select id="ySel"></select></div>
+<div style="margin-top:8px"><span data-th="ตัวแปรอิสระ (X):" data-en="Independent variables (X):"></span> <span id="xBox"></span></div>
+<p class="hint" id="fileInfo"></p>
+</div></div>
+
+<div class="card"><h2><span class="step">3</span><span data-th="ประมวลผล" data-en="Process"></span></h2>
+<div class="row"><button class="main" id="runBtn" disabled data-th="▶ ประมวลผล" data-en="▶ Process"></button><button class="danger" id="resetBtn" data-th="⟲ Reset หน้า" data-en="⟲ Reset page"></button></div>
+<div class="err" id="err"></div></div>
+
+<div id="out" class="hide">
+<div class="card" id="secDesc"></div>
+<div class="card" id="secMulti"></div>
+<div class="card" id="secHet"></div>
+<div class="card"><h2 data-th="ดาวน์โหลดผลลัพธ์" data-en="Download results"></h2><button class="main" id="xlsBtn" data-th="⬇ ดาวน์โหลดตารางเป็น Excel (.xlsx)" data-en="⬇ Download tables as Excel (.xlsx)"></button></div>
+<div class="card"><h2 data-th="กราฟ" data-en="Charts"></h2><p class="hint" data-th="เลือกกราฟที่ต้องการดู" data-en="Choose a chart to view"></p>
+<div class="row" id="chartBtns"></div>
+<div class="chartbox" style="margin-top:12px" id="chartBox"></div>
+<div class="expl" id="chartExpl"></div>
+<button class="main" id="pngBtn" data-th="⬇ ดาวน์โหลดกราฟเป็น PNG" data-en="⬇ Download chart as PNG"></button></div>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const S={test:'all',headers:[],data:[],numCols:[],res:null,chart:null,chartKey:null,tables:{}};
+const f=(x,d=4)=>x==null||!isFinite(x)?(x===Infinity?'∞':'-'):Number(x).toFixed(d);
+const fp=p=>p==null||isNaN(p)?'-':(p<0.001?'<0.001':p.toFixed(4));
+
+/* ---------- special functions ---------- */
+function lgam(x){const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];let y=x,t=x+5.5;t-=(x+.5)*Math.log(t);let s=1.000000000190015;for(const v of c)s+=v/++y;return -t+Math.log(2.5066282746310005*s/x)}
+function gP(a,x){if(x<=0)return 0;if(x<a+1){let ap=a,sum=1/a,del=sum;for(let n=0;n<500;n++){ap++;del*=x/ap;sum+=del;if(Math.abs(del)<Math.abs(sum)*1e-14)break}return sum*Math.exp(-x+a*Math.log(x)-lgam(a))}
+let b=x+1-a,c=1e300,d=1/b,h=d;for(let i=1;i<500;i++){const an=-i*(i-a);b+=2;d=an*d+b;if(Math.abs(d)<1e-300)d=1e-300;c=b+an/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-14)break}return 1-Math.exp(-x+a*Math.log(x)-lgam(a))*h}
+function bcf(a,b,x){let qab=a+b,qap=a+1,qam=a-1,c=1,d=1-qab*x/qap;if(Math.abs(d)<1e-300)d=1e-300;d=1/d;let h=d;for(let m=1;m<500;m++){const m2=2*m;let aa=m*(b-m)*x/((qam+m2)*(a+m2));d=1+aa*d;if(Math.abs(d)<1e-300)d=1e-300;c=1+aa/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;h*=d*c;aa=-(a+m)*(qab+m)*x/((a+m2)*(qap+m2));d=1+aa*d;if(Math.abs(d)<1e-300)d=1e-300;c=1+aa/c;if(Math.abs(c)<1e-300)c=1e-300;d=1/d;const del=d*c;h*=del;if(Math.abs(del-1)<1e-14)break}return h}
+function bI(x,a,b){if(x<=0)return 0;if(x>=1)return 1;const bt=Math.exp(lgam(a+b)-lgam(a)-lgam(b)+a*Math.log(x)+b*Math.log(1-x));return x<(a+1)/(a+b+2)?bt*bcf(a,b,x)/a:1-bt*bcf(b,a,1-x)/b}
+const chiP=(x,df)=>x<=0?1:1-gP(df/2,x/2);
+const fP=(F,d1,d2)=>F<=0?1:bI(d2/(d2+d1*F),d2/2,d1/2);
+const tP=(t,df)=>bI(df/(df+t*t),df/2,.5);
+
+/* ---------- linear algebra / OLS ---------- */
+function inv(A){const n=A.length,M=A.map((r,i)=>[...r,...Array.from({length:n},(_,j)=>+(i===j))]);for(let i=0;i<n;i++){let p=i;for(let r=i+1;r<n;r++)if(Math.abs(M[r][i])>Math.abs(M[p][i]))p=r;if(Math.abs(M[p][i])<1e-11)return null;[M[i],M[p]]=[M[p],M[i]];const d=M[i][i];for(let j=0;j<2*n;j++)M[i][j]/=d;for(let r=0;r<n;r++)if(r!==i){const m=M[r][i];if(m)for(let j=0;j<2*n;j++)M[r][j]-=m*M[i][j]}}return M.map(r=>r.slice(n))}
+function ols(X,y){const n=X.length,p=X[0].length;const XtX=Array.from({length:p},()=>Array(p).fill(0)),Xty=Array(p).fill(0);for(let i=0;i<n;i++)for(let a=0;a<p;a++){Xty[a]+=X[i][a]*y[i];for(let b=0;b<p;b++)XtX[a][b]+=X[i][a]*X[i][b]}
+const I=inv(XtX);if(!I)return null;const beta=I.map(r=>r.reduce((s,v,j)=>s+v*Xty[j],0));const fit=X.map(r=>r.reduce((s,v,j)=>s+v*beta[j],0));const res=y.map((v,i)=>v-fit[i]);const my=y.reduce((a,b)=>a+b,0)/n;const SSE=res.reduce((s,e)=>s+e*e,0),SST=y.reduce((s,v)=>s+(v-my)*(v-my),0);const k=p-1,dfe=n-p;const R2=SST>0?1-SSE/SST:0;const MSE=SSE/dfe;const se=I.map((r,i)=>Math.sqrt(Math.max(MSE*r[i],0)));const t=beta.map((b,i)=>b/se[i]);const pv=t.map(v=>tP(v,dfe));const F=(R2/k)/((1-R2)/dfe);return{beta,fit,res,SSE,SST,R2,adj:1-(1-R2)*(n-1)/dfe,MSE,se,t,pv,F,pF:fP(F,k,dfe),k,dfe,n,my}}
+const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+const sd=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1))};
+const corr=(a,b)=>{const ma=mean(a),mb=mean(b);let sab=0,saa=0,sbb=0;for(let i=0;i<a.length;i++){sab+=(a[i]-ma)*(b[i]-mb);saa+=(a[i]-ma)**2;sbb+=(b[i]-mb)**2}return sab/Math.sqrt(saa*sbb)};
+function aux(cols,z){/* regress z on columns (with intercept); returns R2 and F info */const n=z.length;const X=Array.from({length:n},(_,i)=>[1,...cols.map(c=>c[i])]);const r=ols(X,z);if(!r)return null;return{R2:r.R2,q:cols.length,n,F:(r.R2/cols.length)/((1-r.R2)/(n-cols.length-1)),SSR:r.SST-r.SSE,SST:r.SST}}
+
+/* ---------- language ---------- */
+let LANG='th';const L=(th,en)=>LANG==='th'?th:en;
+function applyStatic(){document.documentElement.lang=LANG;document.title=L('เครื่องมือทดสอบ VIF และ Heteroscedasticity','VIF and Heteroscedasticity Test Tool');document.querySelectorAll('[data-th]').forEach(e=>e.textContent=e.dataset[LANG])}
+function setLang(l){LANG=l;$('lgTH').classList.toggle('on',l==='th');$('lgEN').classList.toggle('on',l==='en');applyStatic();updateInfo();if(S.res){const k=S.chartKey;render(S.res);if(S.charts.some(c=>c.k===k))showChart(k)}}
+$('lgTH').onclick=()=>setLang('th');$('lgEN').onclick=()=>setLang('en');
+
+/* ---------- UI: tests ---------- */
+$('testBtns').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.test=b.dataset.t;[...$('testBtns').children].forEach(x=>x.classList.toggle('on',x===b))};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(t,bad){let el=$('toast');if(!el){el=document.createElement('div');el.id='toast';el.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));max-width:90%;padding:10px 18px;border-radius:10px;font-weight:600;z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.25)';document.body.appendChild(el)}el.textContent=t;el.style.background=bad?'#c0392b':'#16794a';el.style.color='#fff';el.style.display='block';clearTimeout(el._t);el._t=setTimeout(()=>el.style.display='none',5000)}
+
+/* ---------- file loading ---------- */
+$('file').onchange=async e=>{const file=e.target.files[0];$('err').textContent='';if(!file)return;
+  try{const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});loadRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true}),wb.SheetNames[0],false)}
+  catch(x){$('err').textContent=L('อ่านไฟล์ไม่สำเร็จ: ','Could not read file: ')+x.message}};
+function loadRows(rows,sheet,sample){
+  try{
+    if(rows.length<4)throw new Error(L('ข้อมูลน้อยเกินไป','Too little data'));
+    const hd=rows[0].map((h,i)=>h==null||h===''?'Var'+(i+1):String(h));
+    const data=rows.slice(1).filter(r=>r.some(v=>v!=null&&v!==''));
+    const num=v=>{if(typeof v==='number')return v;if(typeof v==='string'&&v.trim()!==''&&isFinite(v.replace(/,/g,'')))return +v.replace(/,/g,'');return null};
+    S.data=data.map(r=>hd.map((_,i)=>num(r[i])));S.headers=hd;
+    S.numCols=hd.map((_,i)=>i).filter(i=>S.data.filter(r=>r[i]!=null).length>=0.7*data.length);
+    if(S.numCols.length<2)throw new Error(L('ต้องมีคอลัมน์ตัวเลขอย่างน้อย 2 คอลัมน์','At least 2 numeric columns are required'));
+    $('ySel').innerHTML=S.numCols.map(i=>`<option value="${i}">${esc(hd[i])}</option>`).join('');
+    $('ySel').value=S.numCols[0];buildX();
+    S.info={rows:data.length,cols:S.numCols.length,sheet,sample};updateInfo();
+    $('varBox').classList.remove('hide');$('runBtn').disabled=false;
+  }catch(x){$('err').textContent=L('อ่านไฟล์ไม่สำเร็จ: ','Could not read file: ')+x.message;$('varBox').classList.add('hide');$('runBtn').disabled=true}
+}
+function updateInfo(){const i=S.info;if(!i)return;$('fileInfo').textContent=L(`อ่านข้อมูลสำเร็จ: ${i.rows} แถว, ${i.cols} คอลัมน์ตัวเลข (ชีต: ${i.sheet})`,`Loaded: ${i.rows} rows, ${i.cols} numeric columns (sheet: ${i.sheet})`)+(i.sample?L(' ใช้ข้อมูลตัวอย่าง กดประมวลผลได้เลย',' Sample data in use; just press Process'):'')}
+function buildX(){const y=+$('ySel').value;$('xBox').innerHTML=S.numCols.filter(i=>i!==y).map(i=>`<label class="chk"><input type="checkbox" value="${i}" checked>${esc(S.headers[i])}</label>`).join('')}
+$('ySel').onchange=buildX;
+
+/* ---------- analysis ---------- */
+function analyze(){
+  const yi=+$('ySel').value,xi=[...$('xBox').querySelectorAll('input:checked')].map(c=>+c.value);
+  if(!xi.length)throw new Error(L('กรุณาเลือกตัวแปรอิสระอย่างน้อย 1 ตัว','Please select at least 1 independent variable'));
+  const idx=[yi,...xi];const rows=S.data.filter(r=>idx.every(i=>r[i]!=null));
+  const n=rows.length,k=xi.length;if(n<k+3)throw new Error(L(`จำนวนข้อมูลที่สมบูรณ์ (${n}) น้อยเกินไปสำหรับตัวแปร ${k} ตัว`,`Complete cases (${n}) are too few for ${k} predictors`));
+  const y=rows.map(r=>r[yi]),xs=xi.map(i=>rows.map(r=>r[i]));const names=xi.map(i=>S.headers[i]),yn=S.headers[yi];
+  const X=rows.map((_,r)=>[1,...xs.map(c=>c[r])]);const m=ols(X,y);
+  if(!m)throw new Error(L('ไม่สามารถประมาณสมการถดถอยได้ (ตัวแปรอิสระอาจสัมพันธ์กันสมบูรณ์หรือมีค่าคงที่)','Cannot estimate the regression (predictors may be perfectly collinear or constant)'));
+  const out={n,k,yn,names,y,xs,m,dropped:S.data.length-n};
+  out.desc=[yn,...names].map((nm,j)=>{const a=j?xs[j-1]:y;return{nm,n,mean:mean(a),sd:sd(a),min:Math.min(...a),max:Math.max(...a)}});
+  const all=[y,...xs];out.cn=[yn,...names];out.cm=all.map(a=>all.map(b=>corr(a,b)));
+  out.vif=xs.map((c,j)=>{if(k===1)return{nm:names[j],R2:0,vif:1,tol:1};const a=aux(xs.filter((_,t)=>t!==j),c);const R2=a?a.R2:1;const tol=1-R2;return{nm:names[j],R2,tol:tol<1e-10?0:tol,vif:tol<1e-10?Infinity:1/tol}});
+  out.maxVif=Math.max(...out.vif.map(v=>v.vif));out.meanVif=mean(out.vif.map(v=>v.vif));
+  const e=m.res,e2=e.map(v=>v*v),sig2=m.SSE/n;const tests=[];
+  const bp=aux(xs,e2);if(bp){tests.push({key:'K',nm:'Breusch-Pagan (Koenker, LM)',stat:n*bp.R2,sl:'χ²',df:k,p:chiP(n*bp.R2,k)});
+    const a2=aux(xs,e2.map(v=>v/sig2));tests.push({key:'B',nm:L('Breusch-Pagan (ดั้งเดิม, LM)','Breusch-Pagan (original, LM)'),stat:a2.SSR/2,sl:'χ²',df:k,p:chiP(a2.SSR/2,k)});
+    tests.push({key:'F',nm:'Breusch-Pagan (F-version)',stat:bp.F,sl:'F',df:`${k}, ${n-k-1}`,p:fP(bp.F,k,n-k-1)})}
+  let cols=[...xs];for(let a=0;a<k;a++)for(let b=a;b<k;b++)cols.push(xs[a].map((v,i)=>v*xs[b][i]));
+  const uniq=[];for(const c of cols){const mc=mean(c);if(c.every(v=>Math.abs(v-mc)<1e-12))continue;if(uniq.some(u=>u.every((v,i)=>Math.abs(v-c[i])<1e-9)))continue;uniq.push(c)}
+  if(uniq.length<n-3){const w=aux(uniq,e2);if(w)tests.push({key:'W',nm:'White Test (LM)',stat:n*w.R2,sl:'χ²',df:uniq.length,p:chiP(n*w.R2,uniq.length)});else tests.push({key:'W',nm:'White Test (LM)',stat:NaN,sl:'χ²',df:uniq.length,p:NaN,note:L('คำนวณไม่ได้ (singular)','Not computable (singular)')})}
+  const gl=aux(xs,e.map(Math.abs));if(gl)tests.push({key:'G',nm:L('Glejser Test (|e| บน X)','Glejser Test (|e| on X)'),stat:gl.F,sl:'F',df:`${k}, ${n-k-1}`,p:fP(gl.F,k,n-k-1)});
+  out.tests=tests;
+  const main=tests.filter(t=>'KWG'.includes(t.key)&&!isNaN(t.p));out.sig=main.filter(t=>t.p<0.05).length;out.mainN=main.length;
+  out.stdres=e.map(v=>v/Math.sqrt(m.MSE));
+  return out;
+}
+
+/* ---------- rendering ---------- */
+const tbl=(name,h,rows)=>{S.tables[name]=[h,...rows];return `<div class="tw"><table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`};
+const lvl=v=>v>=10?[L('สูงมาก (มีปัญหา)','Very high (problem)'),'badc']:v>=5?[L('ปานกลาง (ควรระวัง)','Moderate (caution)'),'warnc']:[L('ต่ำ (ไม่มีปัญหา)','Low (no problem)'),'good'];
+function render(R){
+  S.tables={};const {m}=R;const T=S.test;
+  const rr=[['(Intercept)',f(m.beta[0]),f(m.se[0]),f(m.t[0],3),fp(m.pv[0])],...R.names.map((nm,j)=>[esc(nm),f(m.beta[j+1]),f(m.se[j+1]),f(m.t[j+1],3),fp(m.pv[j+1])])];
+  const pTxt=fp(m.pF)==='<0.001'?'<0.001':'= '+fp(m.pF);
+  $('secDesc').innerHTML=`<h2>${L('ข้อมูลเบื้องต้นและสมการถดถอย','Descriptives and Regression Model')}</h2>
+  <p class="hint">${L('ตัวแปรตาม','Dependent variable')}: <b>${esc(R.yn)}</b> | ${L(`ตัวแปรอิสระ ${R.k} ตัว | จำนวนข้อมูลที่ใช้ n = ${R.n}${R.dropped?` (ตัดแถวที่ข้อมูลไม่ครบ ${R.dropped} แถว)`:''}`,`${R.k} predictor(s) | n = ${R.n}${R.dropped?` (${R.dropped} incomplete row(s) removed)`:''}`)}</p>
+  <h3>${L('ตารางที่ 1 สถิติเชิงพรรณนา','Table 1 Descriptive statistics')}</h3>${tbl('Descriptive',[L('ตัวแปร','Variable'),'n','Mean','SD','Min','Max'],R.desc.map(d=>[esc(d.nm),d.n,f(d.mean),f(d.sd),f(d.min),f(d.max)]))}
+  <h3>${L('ตารางที่ 2 เมทริกซ์สหสัมพันธ์เพียร์สัน (r)','Table 2 Pearson correlation matrix (r)')}</h3>${tbl('Correlation',['',...R.cn.map(esc)],R.cn.map((c,i)=>[esc(c),...R.cm[i].map(v=>f(v,3))]))}
+  <div class="expl"><p>${L('ค่า r อยู่ระหว่าง -1 ถึง +1 ยิ่งใกล้ ±1 แสดงว่าสองตัวแปรสัมพันธ์เชิงเส้นกันมาก หากตัวแปรอิสระคู่ใดมี |r| สูงกว่า 0.80 ถึง 0.90 เป็นสัญญาณเตือนของ Multicollinearity','r ranges from -1 to +1; the closer to ±1, the stronger the linear relationship. If any pair of predictors has |r| above 0.80 to 0.90, it is a warning sign of multicollinearity.')}</p></div>
+  <h3>${L('ตารางที่ 3 สรุปแบบจำลองถดถอย (OLS)','Table 3 Regression model summary (OLS)')}</h3>${tbl('Model',['R','R²','Adj. R²','F','df','Sig. (F)',L('SE ของการประมาณ','Std. Error of Estimate')],[[f(Math.sqrt(m.R2)),f(m.R2),f(m.adj),f(m.F,3),`${m.k}, ${m.dfe}`,fp(m.pF),f(Math.sqrt(m.MSE))]])}
+  ${tbl('Coefficients',[L('ตัวแปร','Variable'),'B','Std. Error','t','Sig.'],rr)}
+  <div class="expl"><p>${L(`แบบจำลองอธิบายความแปรปรวนของ ${esc(R.yn)} ได้ ${(m.R2*100).toFixed(2)}% (Adj. R² = ${(m.adj*100).toFixed(2)}%) และ ${m.pF<0.05?'<span class="good">มีนัยสำคัญทางสถิติ</span>':'<span class="badc">ไม่มีนัยสำคัญทางสถิติ</span>'}ที่ระดับ 0.05 (F = ${f(m.F,3)}, p ${pTxt}) ค่า B คือการเปลี่ยนแปลงของ Y เมื่อ X เพิ่มขึ้น 1 หน่วย โดยควบคุมตัวแปรอื่นให้คงที่ ส่วนค่า Sig. ของสัมประสิทธิ์ที่น้อยกว่า 0.05 หมายถึงตัวแปรนั้นมีอิทธิพลอย่างมีนัยสำคัญ`,
+  `The model explains ${(m.R2*100).toFixed(2)}% of the variance in ${esc(R.yn)} (Adj. R² = ${(m.adj*100).toFixed(2)}%) and is ${m.pF<0.05?'<span class="good">statistically significant</span>':'<span class="badc">not statistically significant</span>'} at the 0.05 level (F = ${f(m.F,3)}, p ${pTxt}). B is the change in Y for a 1-unit increase in X, holding the other variables constant. A coefficient with Sig. below 0.05 indicates a significant effect.`)}</p></div>`;
+
+  const sm=$('secMulti');
+  if(T==='hetero')sm.classList.add('hide');else{sm.classList.remove('hide');
+    const v=R.vif;const hi=v.filter(x=>x.vif>=10),mid=v.filter(x=>x.vif>=5&&x.vif<10),lowTol=v.filter(x=>x.tol<0.1);
+    const jn=a=>a.map(x=>esc(x.nm)).join(', ');
+    const concl=hi.length?L(`<span class="badc">พบ Multicollinearity รุนแรง</span> ในตัวแปร: ${jn(hi)} (VIF ≥ 10)`,`<span class="badc">Severe multicollinearity detected</span> in: ${jn(hi)} (VIF ≥ 10)`):mid.length?L(`<span class="warnc">พบ Multicollinearity ระดับปานกลาง</span> ในตัวแปร: ${jn(mid)} (5 ≤ VIF < 10) ควรพิจารณาอย่างระมัดระวัง`,`<span class="warnc">Moderate multicollinearity detected</span> in: ${jn(mid)} (5 ≤ VIF < 10); interpret with caution`):L('<span class="good">ไม่พบปัญหา Multicollinearity</span> ตัวแปรอิสระทุกตัวมี VIF ต่ำกว่า 5','<span class="good">No multicollinearity problem.</span> All predictors have VIF below 5.');
+    sm.innerHTML=`<h2>${L('ผลการทดสอบ Multicollinearity (VIF และ Tolerance)','Multicollinearity Test Results (VIF and Tolerance)')}</h2>
+    <h3>${L('ตารางที่ 4 ค่า VIF และ Tolerance','Table 4 VIF and Tolerance')}</h3>${tbl('VIF_Tolerance',[L('ตัวแปรอิสระ','Predictor'),L('R² (ตัวแปรนี้บนตัวแปรอิสระอื่น)','R² (regressed on other predictors)'),'Tolerance','VIF',L('การแปลผล','Interpretation')],v.map(x=>{const l=lvl(x.vif);return[esc(x.nm),f(x.R2),f(x.tol),f(x.vif,3),`<span class="${l[1]}">${l[0]}</span>`]}))}
+    <p class="hint">${L('VIF เฉลี่ย','Mean VIF')} = ${f(R.meanVif,3)} | ${L('VIF สูงสุด','Max VIF')} = ${f(R.maxVif,3)}${R.k===1?L(' | มีตัวแปรอิสระเพียง 1 ตัว จึงไม่เกิด Multicollinearity (VIF = 1)',' | Only 1 predictor, so multicollinearity cannot occur (VIF = 1)'):''}</p>
+    <div class="expl"><p><b>${L('สรุปผล:','Conclusion:')}</b> ${concl}${lowTol.length?L(` และมี Tolerance ต่ำกว่า 0.10 ในตัวแปร ${jn(lowTol)}`,` and Tolerance below 0.10 for: ${jn(lowTol)}`):''}</p>
+    ${L(`<p><b>VIF (Variance Inflation Factor)</b> = 1 / (1 − R²ⱼ) โดย R²ⱼ ได้จากการถดถอยตัวแปรอิสระตัวที่ j บนตัวแปรอิสระตัวอื่นทั้งหมด บอกว่าความแปรปรวนของสัมประสิทธิ์ถดถอยถูก "ขยาย" มากเพียงใดเพราะตัวแปรอิสระสัมพันธ์กันเอง</p>
+    <p><b>Tolerance</b> = 1 − R²ⱼ = 1 / VIF คือสัดส่วนความแปรปรวนของตัวแปรนั้นที่ไม่ถูกอธิบายโดยตัวแปรอิสระอื่น ค่ายิ่งต่ำยิ่งซ้ำซ้อนกับตัวแปรอื่น</p>
+    <p><b>เกณฑ์พิจารณา:</b> VIF &lt; 5 (Tolerance &gt; 0.20) = ไม่มีปัญหา | 5 ≤ VIF &lt; 10 = ควรระวัง | VIF ≥ 10 (Tolerance ≤ 0.10) = มีปัญหารุนแรง (บางตำราใช้เกณฑ์ผ่อนปรนที่ VIF &lt; 10 และเข้มงวดที่ VIF &lt; 3)</p>
+    <p><b>แนวทางแก้ไข:</b> ตัดตัวแปรที่ซ้ำซ้อนออก, รวมตัวแปรที่คล้ายกันเป็นดัชนีเดียว, ใช้การวิเคราะห์องค์ประกอบหลัก (PCA), Ridge Regression หรือเพิ่มขนาดตัวอย่าง</p>`,
+    `<p><b>VIF (Variance Inflation Factor)</b> = 1 / (1 − R²ⱼ), where R²ⱼ comes from regressing predictor j on all other predictors. It shows how much the variance of a regression coefficient is inflated because the predictors are correlated with each other.</p>
+    <p><b>Tolerance</b> = 1 − R²ⱼ = 1 / VIF is the share of a predictor's variance not explained by the other predictors. The lower it is, the more redundant the predictor.</p>
+    <p><b>Rules of thumb:</b> VIF &lt; 5 (Tolerance &gt; 0.20) = no problem | 5 ≤ VIF &lt; 10 = caution | VIF ≥ 10 (Tolerance ≤ 0.10) = severe problem (some texts use a lenient cutoff of VIF &lt; 10 and a strict one of VIF &lt; 3).</p>
+    <p><b>Remedies:</b> drop redundant predictors, combine similar predictors into one index, use principal component analysis (PCA) or Ridge Regression, or collect more data.</p>`)}</div>`}
+
+  const sh=$('secHet');
+  if(T==='multi')sh.classList.add('hide');else{sh.classList.remove('hide');
+    const ok=R.sig===0;
+    const concl=ok?L('<span class="good">ไม่พบ Heteroscedasticity</span> ทุกการทดสอบหลัก (Koenker BP, White, Glejser) ไม่มีนัยสำคัญ จึงถือว่าข้อมูลเป็นไปตามข้อตกลง <b>Homoscedasticity</b> (ความแปรปรวนของความคลาดเคลื่อนคงที่)','<span class="good">No heteroscedasticity detected.</span> None of the main tests (Koenker BP, White, Glejser) is significant, so the <b>homoscedasticity</b> assumption (constant error variance) is satisfied.'):R.sig===R.mainN?L('<span class="badc">พบ Heteroscedasticity</span> ทุกการทดสอบหลักมีนัยสำคัญ ข้อมูลละเมิดข้อตกลง Homoscedasticity อย่างชัดเจน','<span class="badc">Heteroscedasticity detected.</span> All main tests are significant; the homoscedasticity assumption is clearly violated.'):L(`<span class="warnc">พบหลักฐานของ Heteroscedasticity บางส่วน</span> (${R.sig} จาก ${R.mainN} การทดสอบหลักมีนัยสำคัญ) ควรพิจารณาร่วมกับกราฟ Residual`,`<span class="warnc">Partial evidence of heteroscedasticity</span> (${R.sig} of ${R.mainN} main tests significant); consider the residual plots as well.`);
+    sh.innerHTML=`<h2>${L('ผลการทดสอบ Homoscedasticity / Heteroscedasticity','Homoscedasticity / Heteroscedasticity Test Results')}</h2>
+    <h3>${L('ตารางที่ 5 ผลการทดสอบความแปรปรวนของความคลาดเคลื่อน','Table 5 Tests of error variance')}</h3>${tbl('Heteroscedasticity',[L('การทดสอบ','Test'),L('สถิติทดสอบ','Statistic'),L('ค่าสถิติ','Value'),'df','Sig. (p-value)',L('ผลที่ α = 0.05','Result at α = 0.05')],R.tests.map(t=>[esc(t.nm),t.sl,f(t.stat),t.df,fp(t.p),isNaN(t.p)?(t.note||'-'):t.p<0.05?`<span class="badc">Heteroscedasticity</span>`:`<span class="good">Homoscedasticity</span>`]))}
+    <div class="expl"><p><b>${L('สรุปผล:','Conclusion:')}</b> ${concl}</p>
+    ${L(`<p><b>สมมติฐาน:</b> H₀ = ความแปรปรวนของความคลาดเคลื่อนคงที่ (Homoscedasticity) | H₁ = ความแปรปรวนไม่คงที่ (Heteroscedasticity) ถ้า p &lt; 0.05 จึงปฏิเสธ H₀</p>
+    <p><b>Breusch-Pagan:</b> ถดถอยค่า e² บนตัวแปรอิสระ หาก X อธิบาย e² ได้มาก (LM = n·R²) แสดงว่าความแปรปรวนขึ้นกับ X (แบบ Koenker ทนต่อข้อมูลที่ไม่เป็นปกติได้ดีกว่าแบบดั้งเดิม)</p>
+    <p><b>White Test:</b> ถดถอย e² บน X, X² และผลคูณไขว้ จับ Heteroscedasticity ได้ทั้งรูปแบบเชิงเส้นและไม่เชิงเส้น ไม่ต้องระบุรูปแบบล่วงหน้า</p>
+    <p><b>Glejser Test:</b> ถดถอยค่าสัมบูรณ์ของ residual (|e|) บนตัวแปรอิสระ ใช้ F-test</p>
+    <p><b>ผลกระทบ:</b> ค่า B ยังไม่เอนเอียง แต่ Standard Error, ค่า t และ p-value ไม่น่าเชื่อถือ ทำให้การสรุปนัยสำคัญคลาดเคลื่อน</p>
+    <p><b>แนวทางแก้ไข:</b> ใช้ Robust Standard Errors (HC3), Weighted Least Squares (WLS), แปลงตัวแปร Y เช่น log หรือ √ หรือตรวจสอบรูปแบบสมการ/ค่าผิดปกติ</p>`,
+    `<p><b>Hypotheses:</b> H₀ = constant error variance (homoscedasticity) | H₁ = non-constant error variance (heteroscedasticity). Reject H₀ if p &lt; 0.05.</p>
+    <p><b>Breusch-Pagan:</b> regresses e² on the predictors. If X explains e² well (LM = n·R²), the variance depends on X. The Koenker version is more robust to non-normal errors than the original.</p>
+    <p><b>White Test:</b> regresses e² on X, X² and cross-products; it detects both linear and non-linear forms of heteroscedasticity without specifying the form in advance.</p>
+    <p><b>Glejser Test:</b> regresses the absolute residuals (|e|) on the predictors using an F-test.</p>
+    <p><b>Consequences:</b> B remains unbiased, but standard errors, t-values and p-values become unreliable, so significance conclusions may be wrong.</p>
+    <p><b>Remedies:</b> use robust standard errors (HC3), weighted least squares (WLS), transform Y (e.g. log or square root), or check the model specification and outliers.</p>`)}</div>`}
+  buildChartBtns();
+}
+
+/* ---------- charts ---------- */
+const bg={id:'bg',beforeDraw(c){const x=c.ctx;x.save();x.globalCompositeOperation='destination-over';x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}};
+const base=(t,xt,yt)=>({responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:t,color:'#222',font:{size:15}},legend:{labels:{color:'#222'}}},scales:{x:{title:{display:!!xt,text:xt,color:'#222'},ticks:{color:'#333'},grid:{color:'#e5e7ee'}},y:{title:{display:!!yt,text:yt,color:'#222'},ticks:{color:'#333'},grid:{color:'#e5e7ee'}}}});
+const lineDs=(label,val,col,n)=>({type:'line',label,data:Array(n).fill(val),borderColor:col,borderDash:[6,4],pointRadius:0,borderWidth:2,fill:false});
+function CH(){const R=S.res,T=S.test,list=[];const n=R.names.length;const pred=L('ตัวแปรอิสระ','Predictor'),thr=L('เกณฑ์ ','Threshold ');
+  if(T!=='hetero'){
+    list.push({k:'vif',l:L('กราฟ VIF','VIF chart'),build:()=>({type:'bar',data:{labels:R.vif.map(v=>v.nm),datasets:[{label:'VIF',data:R.vif.map(v=>Math.min(v.vif,100)),backgroundColor:R.vif.map(v=>v.vif>=10?'#d64541':v.vif>=5?'#e6a23c':'#3c8dde')},lineDs(thr+'5',5,'#e6a23c',n),lineDs(thr+'10',10,'#d64541',n)]},options:base(L('ค่า VIF ของตัวแปรอิสระ','VIF of the predictors'),pred,'VIF')}),
+      ex:L('แท่งแสดงค่า VIF ของแต่ละตัวแปร เส้นประสีส้มคือเกณฑ์ 5 และสีแดงคือเกณฑ์ 10 แท่งที่เตี้ยกว่าเส้นประสีส้มแสดงว่าไม่มีปัญหา Multicollinearity (สีน้ำเงิน = ปกติ, ส้ม = ควรระวัง, แดง = รุนแรง) แท่งที่สูงเกิน 10 ควรพิจารณาตัดหรือรวมตัวแปร','Bars show the VIF of each predictor. The orange dashed line is the threshold of 5 and the red one is 10. Bars below the orange line indicate no multicollinearity problem (blue = normal, orange = caution, red = severe). Bars above 10 suggest dropping or combining predictors.')});
+    list.push({k:'tol',l:L('กราฟ Tolerance','Tolerance chart'),build:()=>({type:'bar',data:{labels:R.vif.map(v=>v.nm),datasets:[{label:'Tolerance',data:R.vif.map(v=>v.tol),backgroundColor:R.vif.map(v=>v.tol<=0.1?'#d64541':v.tol<=0.2?'#e6a23c':'#2e9e6b')},lineDs(thr+'0.20',0.2,'#e6a23c',n),lineDs(thr+'0.10',0.1,'#d64541',n)]},options:base(L('ค่า Tolerance ของตัวแปรอิสระ','Tolerance of the predictors'),pred,'Tolerance')}),
+      ex:L('แท่งแสดงค่า Tolerance (1/VIF) ซึ่งตรงข้ามกับ VIF คือยิ่งต่ำยิ่งแย่ แท่งที่ต่ำกว่าเส้นประสีแดง (0.10) หมายถึงมี Multicollinearity รุนแรง ส่วนที่ต่ำกว่า 0.20 ควรระวัง แท่งสีเขียวที่สูงกว่า 0.20 ถือว่าปลอดภัย','Bars show Tolerance (1/VIF), which works in the opposite direction to VIF: the lower, the worse. Bars below the red dashed line (0.10) indicate severe multicollinearity and those below 0.20 call for caution. Green bars above 0.20 are safe.')});
+    list.push({k:'heat',l:L('Heatmap สหสัมพันธ์','Correlation heatmap'),draw:true,ex:L('แผนที่ความร้อนแสดงค่าสหสัมพันธ์ r ระหว่างทุกคู่ตัวแปร สีแดงคือสัมพันธ์ทางบวก สีน้ำเงินคือทางลบ ยิ่งเข้มยิ่งสัมพันธ์กันมาก หากคู่ตัวแปรอิสระมีสีเข้มจัด (|r| > 0.8) เป็นสาเหตุที่น่าจะทำให้ VIF สูง','The heatmap shows the correlation r between every pair of variables. Red means positive and blue negative; the darker, the stronger. Very dark cells between two predictors (|r| > 0.8) are the likely cause of a high VIF.')})}
+  if(T!=='multi'){
+    const pts=R.m.fit.map((v,i)=>({x:v,y:R.m.res[i]}));const mn=Math.min(...R.m.fit),mx=Math.max(...R.m.fit);const fx=L('ค่าทำนาย (Fitted)','Fitted values');
+    list.push({k:'rvf',l:'Residuals vs Fitted',build:()=>({type:'scatter',data:{datasets:[{label:'Residual',data:pts,backgroundColor:'rgba(47,91,234,.6)',pointRadius:4},{type:'line',label:'e = 0',data:[{x:mn,y:0},{x:mx,y:0}],borderColor:'#d64541',pointRadius:0,borderWidth:2}]},options:base('Residuals vs Fitted Values',fx,L('ความคลาดเคลื่อน (Residual)','Residual'))}),
+      ex:L('จุดกระจายอยู่รอบเส้นศูนย์ ถ้าจุดกระจายเป็นแถบกว้างสม่ำเสมอตลอดแนวแกน X แสดงว่า Homoscedasticity ถ้าจุดบานออกเป็นรูปกรวย/ลิ่ม (แคบแล้วกว้างขึ้น หรือกลับกัน) หรือเป็นรูปโค้ง แสดงว่ามี Heteroscedasticity หรือรูปแบบสมการไม่เหมาะสม','Points scatter around the zero line. A band of roughly constant width along the X axis indicates homoscedasticity. A funnel or wedge shape (narrow then wide, or the reverse) or a curved pattern indicates heteroscedasticity or an inappropriate model form.')});
+    list.push({k:'sl',l:'Scale-Location',build:()=>({type:'scatter',data:{datasets:[{label:'√|Standardized Residual|',data:R.m.fit.map((v,i)=>({x:v,y:Math.sqrt(Math.abs(R.stdres[i]))})),backgroundColor:'rgba(46,158,107,.65)',pointRadius:4}]},options:base('Scale-Location Plot',fx,'√|Standardized Residual|')}),
+      ex:L('แสดงขนาดของ residual (√|ค่ามาตรฐาน|) เทียบกับค่าทำนาย ถ้าจุดกระจายในระดับความสูงใกล้เคียงกันตลอด แสดงว่าความแปรปรวนคงที่ แต่ถ้าจุดมีแนวโน้มเพิ่มขึ้นหรือลดลงตามค่าทำนาย แสดงว่ามี Heteroscedasticity','Shows the size of the residuals (√|standardized|) against fitted values. If the points stay at a similar height throughout, the variance is constant; an upward or downward trend indicates heteroscedasticity.')});
+    list.push({k:'hist',l:L('Histogram ของ Residual','Residual histogram'),build:()=>{const e=R.m.res,nb=Math.max(5,Math.ceil(Math.log2(e.length)+1)),lo=Math.min(...e),hi=Math.max(...e),w=(hi-lo)/nb||1,c=Array(nb).fill(0);e.forEach(v=>c[Math.min(nb-1,Math.floor((v-lo)/w))]++);return{type:'bar',data:{labels:c.map((_,i)=>f(lo+w*(i+.5),2)),datasets:[{label:L('ความถี่','Frequency'),data:c,backgroundColor:'rgba(47,91,234,.7)',categoryPercentage:1,barPercentage:.95}]},options:base(L('Histogram ของ Residual','Histogram of Residuals'),L('ค่า Residual (จุดกึ่งกลางช่วง)','Residual (bin midpoint)'),L('ความถี่','Frequency'))}},
+      ex:L('แสดงการแจกแจงของความคลาดเคลื่อน ถ้าเป็นรูประฆังคว่ำสมมาตรรอบ 0 แสดงว่า residual ใกล้เคียงการแจกแจงปกติ ซึ่งเป็นข้อตกลงอีกข้อของการถดถอย (ไม่ใช่การทดสอบ Heteroscedasticity โดยตรง แต่ช่วยประกอบการตรวจสอบ)','Shows the distribution of the errors. A symmetric bell shape centred on 0 suggests approximately normal residuals, another regression assumption (not a direct test of heteroscedasticity, but a useful supporting check).')});
+    R.names.forEach((nm,j)=>list.push({k:'rx'+j,l:'Residual vs '+nm,build:()=>({type:'scatter',data:{datasets:[{label:'Residual',data:R.xs[j].map((v,i)=>({x:v,y:R.m.res[i]})),backgroundColor:'rgba(155,89,182,.6)',pointRadius:4},{type:'line',label:'e = 0',data:[{x:Math.min(...R.xs[j]),y:0},{x:Math.max(...R.xs[j]),y:0}],borderColor:'#d64541',pointRadius:0,borderWidth:2}]},options:base('Residual vs '+nm,nm,'Residual')}),
+      ex:L(`แสดง residual เทียบกับตัวแปรอิสระ "${esc(nm)}" โดยตรง หากความกว้างของการกระจายเปลี่ยนไปตามค่าของ ${esc(nm)} (เช่น บานออกเมื่อค่าสูงขึ้น) แสดงว่าตัวแปรนี้เป็นต้นเหตุของ Heteroscedasticity`,`Shows residuals directly against the predictor "${esc(nm)}". If the spread changes with the value of ${esc(nm)} (e.g. fanning out as it rises), this predictor is a source of heteroscedasticity.`)}))}
+  return list}
+function buildChartBtns(){const Lst=CH();S.charts=Lst;$('chartBtns').innerHTML=Lst.map(c=>`<button data-k="${c.k}">${esc(c.l)}</button>`).join('');showChart(Lst[0].k)}
+$('chartBtns').onclick=e=>{const b=e.target.closest('button');if(b)showChart(b.dataset.k)};
+function showChart(k){const c=S.charts.find(x=>x.k===k);S.chartKey=k;[...$('chartBtns').children].forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  if(S.chart){S.chart.destroy();S.chart=null}
+  $('chartBox').innerHTML='<canvas id="cv"></canvas>';const cv=$('cv');
+  if(c.draw)heat(cv);else{const cfg=c.build();cfg.plugins=[bg];S.chart=new Chart(cv,cfg)}
+  $('chartExpl').innerHTML='<p><b>'+L('คำอธิบายกราฟ:','Chart explanation:')+'</b> '+c.ex+'</p>'}
+function heat(cv){const R=S.res,N=R.cn.length,cs=Math.max(54,Math.min(90,Math.floor(560/N))),ml=130,mt=110,W=ml+cs*N+20,H=mt+cs*N+20;cv.width=W;cv.height=H;const x=cv.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,W,H);x.fillStyle='#222';x.font='bold 15px sans-serif';x.textAlign='left';x.fillText(L('Heatmap เมทริกซ์สหสัมพันธ์ (r)','Correlation matrix heatmap (r)'),10,22);
+  const sh=s=>s.length>14?s.slice(0,13)+'…':s;x.font='12px sans-serif';
+  R.cn.forEach((nm,i)=>{x.fillStyle='#222';x.textAlign='right';x.fillText(sh(nm),ml-8,mt+i*cs+cs/2+4);x.save();x.translate(ml+i*cs+cs/2,mt-8);x.rotate(-Math.PI/4);x.textAlign='left';x.fillText(sh(nm),0,0);x.restore();
+    R.cm[i].forEach((v,j)=>{const a=Math.abs(v),c=v>=0?[214,69,65]:[47,91,234];x.fillStyle=`rgb(${255-(255-c[0])*a},${255-(255-c[1])*a},${255-(255-c[2])*a})`;x.fillRect(ml+j*cs,mt+i*cs,cs-1,cs-1);x.fillStyle=a>.6?'#fff':'#222';x.textAlign='center';x.fillText(v.toFixed(2),ml+j*cs+cs/2,mt+i*cs+cs/2+4)})})}
+
+/* ---------- downloads ---------- */
+async function getDl(){for(let i=0;i<20;i++){if(window.claude&&window.claude.use){try{return await window.claude.use('downloads')}catch(e){return null}}await new Promise(r=>setTimeout(r,150))}return null}
+function anchorSave(filename,data){const blob=data instanceof Blob?data:new Blob([data]);const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
+async function saveFile(filename,data){
+  const d=await getDl();let why='';
+  if(d){try{await d.save({filename,data});toast(L('บันทึกไฟล์แล้ว: ','Saved: ')+filename);return}catch(e){if(e&&e.code==='declined'){toast(L('ยกเลิกการดาวน์โหลด','Download cancelled'),true);return}why=' ('+((e&&(e.code||e.message))||'error')+')'}}
+  try{anchorSave(filename,data);toast(L('กำลังดาวน์โหลด: ','Downloading: ')+filename+why)}catch(e){toast(L('ดาวน์โหลดไม่สำเร็จ','Download failed')+why,true)}}
+const XM='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+$('xlsBtn').onclick=()=>{const wb=XLSX.utils.book_new();const R=S.res;
+  const nm={Descriptive:L('สถิติเชิงพรรณนา','Descriptives'),Correlation:L('สหสัมพันธ์','Correlation'),Model:L('สรุปแบบจำลอง','Model summary'),Coefficients:L('สัมประสิทธิ์','Coefficients'),VIF_Tolerance:'VIF_Tolerance',Heteroscedasticity:'Heteroscedasticity'};
+  const strip=v=>typeof v==='string'?v.replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>'):v;
+  for(const k in S.tables)XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(S.tables[k].map(r=>r.map(strip))),(nm[k]||k).slice(0,31));
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['No','Y','Fitted','Residual','Std. Residual'],...R.y.map((v,i)=>[i+1,v,R.m.fit[i],R.m.res[i],R.stdres[i]])]),'Residuals');
+  saveFile('regression_diagnostics.xlsx',new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})],{type:XM}))};
+$('pngBtn').onclick=()=>{const cv=$('cv');if(!cv)return;cv.toBlob(b=>b&&saveFile('chart_'+S.chartKey+'.png',b),'image/png')};
+
+/* ---------- sample data ---------- */
+const SAMPLE_TH=['ยอดขาย','งบโฆษณา','พื้นที่ร้าน','จำนวนพนักงาน','ราคาสินค้า'],SAMPLE_EN=['Sales','Ad budget','Store area','Staff count','Product price'];
+const SAMPLE=[[106.8,79.66,67.36,5,132.63],[80.47,49.5,49.39,12,139.62],[197.07,87.27,70.13,4,64.02],[208.98,72.76,63.81,14,105.4],[134.41,18.48,17.44,13,60.86],[141.68,97.81,90.96,4,117.22],[273.34,78.5,74.21,15,78.12],[179.26,80.75,76.64,10,115.94],[81.67,21.53,17.63,16,122.7],[66.32,50.53,43.17,3,126.86],[142.05,43.37,43.32,6,60.77],[244.25,93.41,83.11,11,141.6],[176.58,67.95,54.77,6,73.02],[239.52,84.05,69.98,8,53.74],[156.16,49.91,40.32,14,105.49],[64.47,30.45,29.89,5,87.09],[155.95,59.91,54.63,14,132.98],[-43.26,15.74,17.62,4,130.83],[205.79,84.49,73.9,5,81.71],[144.12,66.85,60.96,12,145.29],[346.71,78.23,73.53,16,79.09],[101.88,41.91,36.17,5,101.51],[238.4,97.36,89.91,8,75.6],[238.74,90.38,78.03,18,143.6],[281.97,80.05,70.23,19,66.46],[143.02,27.52,22.86,12,54.49],[153.68,52.0,40.83,10,93.51],[-22.44,13.94,14.98,8,149.24],[39.68,23.89,19.15,13,139.17],[166.58,71.47,64.39,13,124.86],[82.45,77.03,71.73,8,139.08],[144.1,97.08,89.6,3,139.34],[50.55,39.32,38.72,5,101.89],[204.04,43.34,38.51,19,81.59],[91.59,52.26,44.92,10,127.2],[65.23,27.05,23.95,11,116.17],[63.68,21.69,11.09,10,87.37],[210.97,52.81,40.3,16,59.45],[33.43,30.42,20.77,4,124.68],[134.68,70.28,58.27,4,76.25],[37.43,49.34,46.41,7,143.68],[315.04,84.94,71.92,11,74.1],[343.52,73.02,63.83,14,62.28],[56.92,38.11,40.8,11,133.11],[253.12,84.9,74.63,10,65.33],[328.25,82.43,77.87,18,67.93],[98.54,44.87,35.72,5,109.94],[57.6,35.95,31.33,12,137.46],[234.89,71.42,59.53,12,69.64],[104.38,22.58,18.62,11,81.03],[99.45,27.99,29.39,16,127.74],[-46.0,10.66,0.96,7,147.18],[280.24,80.82,74.91,19,100.07],[177.85,69.84,64.04,8,64.39],[261.91,73.46,63.15,12,51.39],[243.73,80.27,65.01,11,72.97],[242.71,51.3,46.53,17,63.18],[129.66,61.19,52.42,10,117.77],[92.18,22.58,21.49,7,62.18],[12.62,20.31,18.39,3,100.63]];
+$('sampleBtn').onclick=()=>{$('err').textContent='';$('file').value='';loadRows([LANG==='th'?SAMPLE_TH:SAMPLE_EN,...SAMPLE],L('ข้อมูลตัวอย่าง','Sample data'),true)};
+$('sampleDl').onclick=()=>{const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([LANG==='th'?SAMPLE_TH:SAMPLE_EN,...SAMPLE]),'Data');saveFile('sample_data.xlsx',new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})],{type:XM}))};
+
+/* ---------- run / reset ---------- */
+$('runBtn').onclick=()=>{$('err').textContent='';try{S.res=analyze();render(S.res);$('out').classList.remove('hide');$('out').scrollIntoView({behavior:'smooth'})}catch(e){$('err').textContent=L('เกิดข้อผิดพลาด: ','Error: ')+e.message}};
+$('resetBtn').onclick=()=>{if(S.chart){S.chart.destroy();S.chart=null}Object.assign(S,{test:'all',headers:[],data:[],numCols:[],res:null,tables:{},info:null});$('file').value='';$('varBox').classList.add('hide');$('out').classList.add('hide');$('runBtn').disabled=true;$('err').textContent='';$('chartBtns').innerHTML='';$('chartBox').innerHTML='';[...$('testBtns').children].forEach(b=>b.classList.toggle('on',b.dataset.t==='all'));window.scrollTo({top:0,behavior:'smooth'})};
+applyStatic();
+</script>
+</body>
+</html>
